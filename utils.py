@@ -1,7 +1,8 @@
-import boto3
 import json
 import struct
 import pymodbus.utilities
+import os
+import glob
 from typing import Tuple, Optional, Dict, Union
 
 def create_modbus_rtu_command(device_id: int, function_code: int, 
@@ -93,39 +94,41 @@ def read_from_vfd(device_id: int, ser) -> Dict[str, int]:
     return json.dumps({"output_frequency": outputs[0], "input_power": outputs[1], 
             "output_current": outputs[2], "output_voltage": outputs[3], "current_mode": outputs[4]})
 
-def clear_bucket(bucket_name: str, folder_name: str):
-    s3 = boto3.client('s3', aws_access_key_id='AKIAVP5ZAHNW7TWQDNEG', aws_secret_access_key = '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')
+def clear_local_folder(directory_path: str):
+    files = glob.glob(f'{directory_path}/*')
+    for f in files:
+        os.remove(f)
 
-    paginator = s3.get_paginator('list_objects_v2')
-    pages = paginator.paginate(Bucket=bucket_name, Prefix=folder_name)
-
-    for page in pages:
-        if 'Contents' in page:
-            delete = {'Objects': [{'Key':obj['Key']} for obj in page['Contents']]}
-            s3.delete_objects(Bucket=bucket_name, Delete=delete)
-
-def check_bucket(bucket: str, folder: str, processed_timestamps: list) -> Tuple[Optional[Dict], Optional[int]]:
-    s3 = boto3.resource('s3', aws_access_key_id='AKIAVP5ZAHNW7TWQDNEG', aws_secret_access_key = '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')
-    bucket_object = s3.Bucket(bucket)
-    contents = [object.key for object in bucket_object.objects.filter(Prefix=folder)][1:]
+def check_local_folder(directory_path: str, processed_timestamps: list) -> Tuple[Optional[Dict], Optional[int]]:
     try:
-        files = [obj for obj in contents if int(obj.split('_')[-1][:-5]) not in processed_timestamps]
+        files = [f for f in glob.glob(f"{directory_path}/*.json") 
+                if int(os.path.basename(f).split('_')[-1][:-5]) not in processed_timestamps]
     except ValueError as e:
         print(e)
         return None, None
+
     if files:
-        latest_file = max(files, key=lambda x: int(x.split('_')[-1][:-5]))
-        s3_object = s3.Object(bucket, latest_file)
-        file_content = s3_object.get()['Body'].read().decode('utf-8')
-        return json.loads(file_content), int(latest_file.split('_')[-1][:-5])
+        latest_file = max(files, key=lambda x: int(os.path.basename(x).split('_')[-1][:-5]))
+        with open(latest_file, 'r') as file_content:
+            data = json.load(file_content)
+        return data, int(os.path.basename(latest_file).split('_')[-1][:-5])
+
     return None, None
 
-def save_to_bucket(bucket_name: str, folder_name: str, 
-                   file_name: str, data: Union[Dict, str]):
-    s3 = boto3.client('s3', aws_access_key_id='AKIAVP5ZAHNW7TWQDNEG', aws_secret_access_key = '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')
-    key = folder_name + '/' + file_name + '.json'
-    encoded_data = str(data).encode('utf-8')
+def save_to_local_folder(directory_path: str, file_name: str, data: Union[Dict, str]):
+    full_file_path = os.path.join(directory_path, f"{file_name}.json")
     try:
-        s3.put_object(Body=encoded_data, Bucket=bucket_name, Key=key)
+        with open(full_file_path, 'w') as f:
+            json.dump(data, f)
     except Exception as e:
-        print(f"Error writing to file {file_name} in bucket {bucket_name}: {e}")
+        print(f"Error writing to file {file_name} in folder {directory_path}: {e}")
+
+def check_directory(dir_path: str):
+    if not os.path.exists(dir_path):
+        os.makedirs(dir_path)
+
+def save_to_file(file_name: str, data: Union[Dict, str], dir_path: str):
+    check_directory(dir_path)
+    file_path = os.path.join(dir_path, file_name + '.json')
+    with open(file_path, 'w') as f:
+        json.dump(data, f, indent=4)

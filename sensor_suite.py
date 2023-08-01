@@ -1,46 +1,10 @@
+import os
 import time
 import argparse
-import boto3
+import shutil
 import json
 import RPi.GPIO as GPIO
 import Adafruit_ADS1x15
-
-def save_to_bucket(bucket_name, data):
-    s3 = boto3.client('s3', aws_access_key_id='AKIAVP5ZAHNW7TWQDNEG', aws_secret_access_key = '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')
-    file_name = f'sensor_data_{int(time.time())}'
-    key_pressure = f'Live-Data-Pathways/Pump_Pressure/{file_name}'
-    key_distance = f'Live-Data-Pathways/Depth_Sensor/{file_name}'
-    encoded_data_distance = json.dumps(data['distance_sensor']).encode('utf-8')
-    encoded_data_pressure = json.dumps(data['pressure_sensor']).encode('utf-8')
-    try:
-        s3.put_object(Body=encoded_data_distance, Bucket=bucket_name, Key=key_distance)
-    except Exception as e:
-        print(f"Error writing to file {key_distance} in bucket {bucket_name}: {e}")
-    try:
-        s3.put_object(Body=encoded_data_pressure, Bucket=bucket_name, Key=key_pressure)
-    except Exception as e:
-        print(f"Error writing to file {key_pressure} in bucket {bucket_name}: {e}")
-
-def print_and_save_sensor_data(dis, pressure, bucket_name):
-    print(f"Mix Tank Distance {dis} mm")
-    print(f"Pressure Sensor Reading: {pressure}")
-    
-    data = {'distance_sensor': dis, 'pressure_sensor': pressure}
-    save_to_bucket(bucket_name, data)
-
-def clear_bucket_folder(bucket_name):
-    s3 = boto3.client('s3', aws_access_key_id='AKIAVP5ZAHNW7TWQDNEG', aws_secret_access_key = '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')
-
-    prefixes = ['Live-Data-Pathways/Pump_Pressure', 'Live-Data-Pathways/Depth_Sensor']
-
-    for prefix in prefixes:
-        paginator = s3.get_paginator('list_objects_v2')
-        pages = paginator.paginate(Bucket=bucket_name, Prefix=prefix)
-
-        for page in pages:
-            if 'Contents' in page:
-                delete = {'Objects': [{'Key':obj['Key']} for obj in page['Contents']]}
-                s3.delete_objects(Bucket=bucket_name, Delete=delete)
 
 def dist():
     GPIO.output(GPIO_TRIGGER, True)
@@ -57,10 +21,46 @@ def dist():
     distance = (TimeElapsed * 34300) / 2
     return distance
 
+def save_to_directory(directory_path, data):
+    file_name = f'sensor_data_{int(time.time())}.json'
+    file_path_pressure = os.path.join(directory_path, 'Pump_Pressure', file_name)
+    file_path_distance = os.path.join(directory_path, 'Depth_Sensor', file_name)
+    try:
+        with open(file_path_distance, 'w') as f:
+            json.dump(data['distance_sensor'], f)
+    except Exception as e:
+        print(f"Error writing to file {file_path_distance}: {e}")
+    try:
+        with open(file_path_pressure, 'w') as f:
+            json.dump(data['pressure_sensor'], f)
+    except Exception as e:
+        print(f"Error writing to file {file_path_pressure}: {e}")
+
+def print_and_save_sensor_data(dis, pressure, directory_path):
+    print(f"Mix Tank Distance {dis} mm")
+    print(f"Pressure Sensor Reading: {pressure}")
+    
+    data = {'distance_sensor': dis, 'pressure_sensor': pressure}
+    save_to_directory(directory_path, data)
+
+def clear_directory(directory_path):
+    for folder in ['Pump_Pressure', 'Depth_Sensor']:
+        folder_path = os.path.join(directory_path, folder)
+        for filename in os.listdir(folder_path):
+            file_path = os.path.join(folder_path, filename)
+            try:
+                if os.path.isfile(file_path) or os.path.islink(file_path):
+                    os.unlink(file_path)
+                elif os.path.isdir(file_path):
+                    shutil.rmtree(file_path)
+            except Exception as e:
+                print(f'Failed to delete {file_path}. Reason: {e}')
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--port1', required=True, help='The port for the distance sensor connection')
     parser.add_argument('--port2', required=True, help='The port for the pressure sensor connection') # 0x48
+    parser.add_argument('--directory', required=True, help='The directory to save the sensor data')
     args = parser.parse_args()
 
     # Pressure Sensor
@@ -74,10 +74,10 @@ if __name__ == "__main__":
     GPIO.setup(GPIO_TRIGGER, GPIO.OUT)
     GPIO.setup(GPIO_ECHO, GPIO.IN)
     
-    # S3
-    bucket_name = 'levitree-main'
-    print(f'Sensor Suite -- Clearing Buckets')
-    clear_bucket_folder(bucket_name)
+    # Directory path
+    directory_path = args.directory
+    print(f'Sensor Suite -- Clearing Directory')
+    clear_directory(directory_path)
     delay_time = .1
     print('Sensor Suite -- Initialization Complete')
     try:
@@ -85,8 +85,8 @@ if __name__ == "__main__":
             distance = dist()
             adc_reading = adc.read_adc(3, gain=GAIN)
             pressure = .004686267155 * adc_reading - 19.09735 # relation for 5v and 150psi sensor
-            print_and_save_sensor_data(distance, pressure, bucket_name)
+            print_and_save_sensor_data(distance, pressure, directory_path)
             time.sleep(delay_time)
     except KeyboardInterrupt:
-        print(f'CTRL + C -- Measured data saved to {bucket_name}')
+        print(f'CTRL + C -- Measured data saved to {directory_path}')
         GPIO.cleanup()
