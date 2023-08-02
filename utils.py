@@ -62,11 +62,12 @@ def send_to_vfd(device_id: int, ser, drive_mode: Optional[int]=None, speed: Opti
     num_registers = drive_mode if drive_mode else speed
     command = create_modbus_rtu_command(device_id, function_code, 
                                         starting_address, num_registers)
-    while True:
-        ser.write(command)
-        line = ser.readline()
-        if line != b'' and not all(byte == 0xff for byte in line):
-            break
+    print(command)
+    # while True:
+    #     ser.write(command)
+    #     line = ser.readline()
+    #     if line != b'' and not all(byte == 0xff for byte in line):
+    #         break
 
 def read_from_vfd(device_id: int, ser) -> Dict[str, int]:
     mapping = {1: b'\x01\x03\x08\x09\x00\x06\x17\xAA', # 1 

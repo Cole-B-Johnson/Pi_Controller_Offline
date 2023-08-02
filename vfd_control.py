@@ -18,7 +18,7 @@ def run(vfd_folder, delay_sec, ser, slave_list, slave_name_mapping):
         while True:
             current_time = time.time()
             for slave_ind, slave_name in slave_name_mapping.items():
-                data, timestamp = check_directory(f'{vfd_folder}{slave_name}/To_VFD/', processed_timestamps[slave_ind])
+                data, timestamp = check_local_folder(f'{vfd_folder}{slave_name}/To_VFD/', processed_timestamps[slave_ind])
                 if data and timestamp:
                     break
             
@@ -57,8 +57,8 @@ if __name__ == "__main__":
     parser.add_argument('--port', required=True, help='The USB port for the Modbus connection')
     args = parser.parse_args()
 
-    local_folder = 'local-main' # this should be your local folder
-    vfd_folder = f'Live-Data-Pathways/'
+    local_folder = '/home/levitree/Desktop' # this should be your local folder
+    vfd_folder = f'{local_folder}/Live-Data-Pathways/'
     delay_sec = 10 
     slave_list = [1,3,4,5]
     slave_name_mapping = {3: 'Hydrapulper', 1: '3_Progressive_Cavity_Pump', 
@@ -73,4 +73,4 @@ if __name__ == "__main__":
         timeout=1
     )
 
-    run(local_folder, vfd_folder, delay_sec, ser, slave_list, slave_name_mapping)
+    run(vfd_folder, delay_sec, ser, slave_list, slave_name_mapping)

@@ -1,4 +1,4 @@
 #!/bin/bash
 
-# python3 vfd_control.py --port '/dev/ttyUSB0' &
-python3 sensor_suite.py --port1 '/dev/ttyAMA0' --port2 '0x48' --directory '/home/levitree/Desktop/Live-Data-Pathways' &
+python3 vfd_control.py --port '/dev/ttyUSB0' &
+# python3 sensor_suite.py --port1 '/dev/ttyAMA0' --port2 '0x48' --directory '/home/levitree/Desktop/Live-Data-Pathways' &
