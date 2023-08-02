@@ -136,5 +136,5 @@ def save_to_file(file_name: str, data: Union[Dict, str], dir_path: str):
 
 def get_timestamps_from_files(directory):
     files = os.listdir(directory)
-    timestamps = [int(file.split('_')[1]) for file in files if file.startswith('output_')]
+    timestamps = [int(file.split('_')[1].split('.')[0]) for file in files if file.startswith('command_')]
     return timestamps

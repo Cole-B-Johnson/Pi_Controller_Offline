@@ -14,7 +14,6 @@ def run(vfd_folder, delay_sec, ser, slave_list, slave_name_mapping):
     for slave_id, slave_name in slave_name_mapping.items():
         dir_path = f'{vfd_folder}{slave_name}/To_VFD'
         processed_timestamps[slave_id] = get_timestamps_from_files(dir_path)
-
     last_directory_write_time = 0
 
     print('VFD Control -- Initialization Complete')
