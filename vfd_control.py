@@ -27,24 +27,23 @@ def run(vfd_folder, delay_sec, ser, slave_list, slave_name_mapping):
             
             if data:
                 drive_mode_new, speed_new, slave_id_new = process_drive_mode(data), process_speed(data), slave_ind
-                print(f'Drive Mode: {drive_mode_new}, Speed: {speed_new}, Slave ID: {slave_id_new}')
+                # print(f'Drive Mode: {drive_mode_new}, Speed: {speed_new}, Slave ID: {slave_id_new}')
                 if ((drive_mode_new != drive_mode) or (slave_id_new != slave_id)) and (drive_mode_new in [2, 4, 1]):
                     drive_mode, slave_id = drive_mode_new, slave_id_new
                     send_to_vfd(slave_id, ser, drive_mode=drive_mode)
                     processed_timestamps[slave_id].append(timestamp)
-                    print('Successfully wrote new drive mode')
+                    # print('Successfully wrote new drive mode')
                 if ((speed_new != speed) or (slave_id_new != slave_id)) and (speed_new != 'OL') and (speed_new != 'NaN'):
                     speed, slave_id = speed_new, slave_id_new
                     send_to_vfd(slave_id, ser, speed=speed)
                     processed_timestamps[slave_id].append(timestamp)
-                    print('Successfully wrote new speed')
+                    # print('Successfully wrote new speed')
 
             if current_time - last_directory_write_time > delay_sec:
                 vfd_output = {}
                 for slave in slave_list:
                     if slave not in [1, 5]:
                         continue
-                    print('reading')
                     vfd_output[slave] = read_from_vfd(slave, ser)
                     if vfd_output[slave] is None:
                         continue

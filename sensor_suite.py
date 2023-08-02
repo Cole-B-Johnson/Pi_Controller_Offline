@@ -37,8 +37,8 @@ def save_to_directory(directory_path, data):
         print(f"Error writing to file {file_path_pressure}: {e}")
 
 def print_and_save_sensor_data(dis, pressure, directory_path):
-    print(f"Mix Tank Distance {dis} mm")
-    print(f"Pressure Sensor Reading: {pressure}")
+    # print(f"Mix Tank Distance {dis} mm")
+    # print(f"Pressure Sensor Reading: {pressure}")
     
     data = {'distance_sensor': dis, 'pressure_sensor': pressure}
     save_to_directory(directory_path, data)

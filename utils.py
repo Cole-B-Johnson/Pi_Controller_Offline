@@ -62,12 +62,11 @@ def send_to_vfd(device_id: int, ser, drive_mode: Optional[int]=None, speed: Opti
     num_registers = drive_mode if drive_mode else speed
     command = create_modbus_rtu_command(device_id, function_code, 
                                         starting_address, num_registers)
-    print(command)
-    # while True:
-    #     ser.write(command)
-    #     line = ser.readline()
-    #     if line != b'' and not all(byte == 0xff for byte in line):
-    #         break
+    while True:
+        ser.write(command)
+        line = ser.readline()
+        if line != b'' and not all(byte == 0xff for byte in line):
+            break
 
 def read_from_vfd(device_id: int, ser) -> Dict[str, int]:
     mapping = {1: b'\x01\x03\x08\x09\x00\x06\x17\xAA', # 1 
@@ -81,17 +80,14 @@ def read_from_vfd(device_id: int, ser) -> Dict[str, int]:
         raise Exception(f"Device ID {device_id} not found in mapping.")
 
     line = ser.readline()
-    print(line)
     try:
         byte_count, data = line[2], line[3:-2]
     except:
         return None
-    print(data)
     try:
         outputs = struct.unpack('>' + 'H' * (byte_count // 2), data)
     except:
         return None
-    print(outputs)
     return json.dumps({"output_frequency": outputs[0], "input_power": outputs[1], 
             "output_current": outputs[2], "output_voltage": outputs[3], "current_mode": outputs[4]})
 
