@@ -3,6 +3,7 @@ import struct
 import pymodbus.utilities
 import os
 import glob
+import time
 from typing import Tuple, Optional, Dict, Union
 
 def create_modbus_rtu_command(device_id: int, function_code: int, 
@@ -96,19 +97,35 @@ def clear_local_folder(directory_path: str):
     for f in files:
         os.remove(f)
 
+
 def check_local_folder(directory_path: str, processed_timestamps: list) -> Tuple[Optional[Dict], Optional[int]]:
     try:
-        files = [f for f in glob.glob(f"{directory_path}/*.json") 
-                if int(os.path.basename(f).split('_')[-1][:-5]) not in processed_timestamps]
+        files = [f for f in glob.glob(f"{directory_path}/*.json")
+                 if int(os.path.basename(f).split('_')[-1][:-5]) not in processed_timestamps]
     except ValueError as e:
         print(e)
         return None, None
 
     if files:
         latest_file = max(files, key=lambda x: int(os.path.basename(x).split('_')[-1][:-5]))
-        with open(latest_file, 'r') as file_content:
-            data = json.load(file_content)
-        return data, int(os.path.basename(latest_file).split('_')[-1][:-5])
+        max_retries = 5  # Number of times to retry reading the file
+        wait_time = .2  # Time in seconds to wait between retries
+        total_wait_time = 0  # Total time waited, to prevent infinite loops
+
+        while max_retries > 0 and total_wait_time < 5:  # 5 seconds timeout
+            try:
+                with open(latest_file, 'r') as file_content:
+                    data = json.load(file_content)
+                return data, int(os.path.basename(latest_file).split('_')[-1][:-5])
+            except json.JSONDecodeError:  # Handle JSON decode errors
+                print(f"Error reading {latest_file}. Retrying...")
+                max_retries -= 1
+                total_wait_time += wait_time
+                time.sleep(wait_time)
+        
+        # After max_retries or 5 seconds timeout, skip this file
+        print(f"Skipping file {latest_file} after multiple failed attempts.")
+        processed_timestamps.append(int(os.path.basename(latest_file).split('_')[-1][:-5]))  # Mark as read
 
     return None, None
 
