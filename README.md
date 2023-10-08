@@ -13,23 +13,19 @@ Below is the directory structure depicting the layout of files and directories:
 │       └── Desktop/
 │           ├── Pi_Controller_Offline/
 │           │   ├── vfd_control.py
-│           │   └── sensor_suite.py
-│           └── Live-Data-Pathways/
-│               ├── Hydrapulper/
-│               │   ├── To_VFD/
-│               │   └── From_VFD/
-│               ├── 3_Progressive_Cavity_Pump/
-│               │   ├── To_VFD/
-│               │   └── From_VFD/
-│               ├── 4_Progressive_Cavity_Pump/
-│               │   ├── To_VFD/
-│               │   └── From_VFD/
-│               └── Auger_Truck/
-│                   ├── To_VFD/
-│                   └── From_VFD/
-└── logs/
-    ├── sensor_data_{timestamp}.log
-    └── vfd_control_{timestamp}.log
+│           │   ├── sensor_suite.py
+│           │   └── utils.py
+│           ├── Live-Data-Pathways/
+│           │   ├── Device1/
+│           │   │   ├── To_VFD/
+│           │   │   └── From_VFD/
+│           │   ├── Device2/
+│           │   │   ├── To_VFD/
+│           │   │   └── From_VFD/
+│           │   └── ... (other devices) ...
+│           └── logs/
+│               ├── vfd_control_TIMESTAMP.log
+│               └── sensor_data_TIMESTAMP.log
 ```
 
 ## System Components
