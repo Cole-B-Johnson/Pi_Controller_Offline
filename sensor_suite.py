@@ -9,7 +9,7 @@ import logging
 import datetime
 
 # Set up logger
-log_directory = "logs"
+log_directory = "/home/levitree/Desktop/logs"
 if not os.path.exists(log_directory):
     os.makedirs(log_directory)  # Creates the directory if it does not exist
 
