@@ -48,10 +48,10 @@ def main():
     # Process log files
     print("Processing log files:")
 
-    for foldername, subfolders, filenames in tqdm(os.walk(log_dir), total=total_log_files, 
-                                                  bar_format='{l_bar}{bar}| {percentage:3.0f}%  Success: {postfix[0]}, Failed: {postfix[1]}', 
-                                                  postfix=[log_success_counter, log_error_counter]):        
-        for filename in filenames:
+    for foldername, subfolders, filenames in os.walk(log_dir):        
+        for filename in tqdm(filenames, 
+                            bar_format='{l_bar}{bar}| {percentage:3.0f}%  Success: {postfix[0]}, Failed: {postfix[1]}', 
+                            postfix=[log_success_counter, log_error_counter]):
             if filename.endswith('.log'):
                 local_path = os.path.join(foldername, filename)
                 with open(local_path, 'r') as file:
@@ -65,10 +65,10 @@ def main():
 
     print("\nProcessing data files:")
 
-    for foldername, subfolders, filenames in tqdm(os.walk(data_dir), total=total_data_files, 
-                                                  bar_format='{l_bar}{bar}| {percentage:3.0f}%  Success: {postfix[0]}, Failed: {postfix[1]}', 
-                                                  postfix=[data_success_counter, data_error_counter]):
-        for filename in filenames:
+    for foldername, subfolders, filenames in os.walk(data_dir):
+        for filename in tqdm(filenames, 
+                            bar_format='{l_bar}{bar}| {percentage:3.0f}%  Success: {postfix[0]}, Failed: {postfix[1]}', 
+                            postfix=[data_success_counter, data_error_counter]):
             if filename.endswith('.json'):
                 local_path = os.path.join(foldername, filename)
                 try:
