@@ -9,8 +9,8 @@ AWS_SECRET_KEY = 'iHbuzpSxrfaRdeGsj9/yfXI5sqm4R2rH1cl2RyzM'
 
 s3 = boto3.client('s3', aws_access_key_id=AWS_ACCESS_KEY, aws_secret_access_key=AWS_SECRET_KEY)
 
-def save_to_bucket(bucket_name: str, folder_name: str, file_name: str, data: Union[Dict, str], file_extension: str = '.json'):
-    key = f"{folder_name}/{file_name}{file_extension}"
+def save_to_bucket(bucket_name: str, folder_name: str, file_name: str, data: Union[Dict, str]):
+    key = f"{folder_name}/{file_name}"
     encoded_data = str(data).encode('utf-8')
     for attempt in range(2):  # Attempt to upload twice
         try:
@@ -56,7 +56,7 @@ def main():
                 local_path = os.path.join(foldername, filename)
                 with open(local_path, 'r') as file:
                     data = file.read()
-                success = save_to_bucket(bucket_name, "logs", filename, data, '.log')
+                success = save_to_bucket(bucket_name, "logs", filename, data)
                 if success:
                     os.remove(local_path)
                     log_success_counter += 1
@@ -75,7 +75,7 @@ def main():
                     with open(local_path, 'r') as file:
                         data = file.read()
                     folder_in_bucket = "uploaded_data/" + foldername.replace(data_dir, "").lstrip("/")
-                    success = save_to_bucket(bucket_name, folder_in_bucket, filename, data, '.json')
+                    success = save_to_bucket(bucket_name, folder_in_bucket, filename, data)
                     if success:
                         os.remove(local_path)
                         data_success_counter += 1
