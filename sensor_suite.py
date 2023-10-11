@@ -38,20 +38,20 @@ def dist():
 
         if not isinstance(distance, (int, float)):
             error_msg = "Error: Calculated distance is not a number"
-            # print(error_msg)
+            print(error_msg)
             logger.error(error_msg)
             return None
         return distance
     except Exception as e:
         error_msg = f"Error calculating distance: {e}"
-        # print(error_msg)
+        print(error_msg)
         logger.error(error_msg)
         return None
 
 def save_to_directory(directory_path, data):
     if not data['distance_sensor'] or not data['pressure_sensor']:
         error_msg = "Error: Missing sensor data"
-        # print(error_msg)
+        print(error_msg)
         logger.error(error_msg)
         return
 
@@ -65,7 +65,7 @@ def save_to_directory(directory_path, data):
             json.dump(data['distance_sensor'], f)
     except Exception as e:
         error_msg = f"Error writing to file {file_path_distance}: {e}"
-        # print(error_msg)
+        print(error_msg)
         logger.error(error_msg)
 
     try:
@@ -74,7 +74,7 @@ def save_to_directory(directory_path, data):
             json.dump(data['pressure_sensor'], f)
     except Exception as e:
         error_msg = f"Error writing to file {file_path_pressure}: {e}"
-        # print(error_msg)
+        print(error_msg)
         logger.error(error_msg)
 
 def print_and_save_sensor_data(dis, pressure, directory_path):
@@ -90,7 +90,7 @@ def print_and_save_sensor_data(dis, pressure, directory_path):
         save_to_directory(directory_path, data)
     else:
         error_msg = "Error: Invalid sensor data"
-        # print(error_msg)
+        print(error_msg)
         logger.error(error_msg)
 
 def clear_directory(directory_path):
@@ -127,10 +127,10 @@ if __name__ == "__main__":
         GPIO.setup(GPIO_ECHO, GPIO.IN)
 
         directory_path = args.directory
-        # info_msg = f'Sensor Suite -- Clearing Directory'
-        # print(info_msg)
-        # logger.info(info_msg)
-        # clear_directory(directory_path)
+        info_msg = f'Sensor Suite -- Clearing Directory'
+        print(info_msg)
+        logger.info(info_msg)
+        clear_directory(directory_path)
         delay_time = .1
         info_msg = 'Sensor Suite -- Initialization Complete'
         print(info_msg)
@@ -143,7 +143,7 @@ if __name__ == "__main__":
                 print_and_save_sensor_data(distance, pressure, directory_path)
             else:
                 error_msg = "Error: ADC reading is invalid"
-                # print(error_msg)
+                print(error_msg)
                 logger.error(error_msg)
             time.sleep(delay_time)
     except KeyboardInterrupt:
@@ -152,7 +152,7 @@ if __name__ == "__main__":
         logger.info(info_msg)
         GPIO.cleanup()
     except Exception as e:
-        # error_msg = f"Unexpected error: {e}"
+        error_msg = f"Unexpected error: {e}"
         print(error_msg)
         logger.error(error_msg)
         GPIO.cleanup()
