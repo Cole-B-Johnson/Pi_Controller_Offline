@@ -9,8 +9,8 @@ AWS_SECRET_KEY = 'iHbuzpSxrfaRdeGsj9/yfXI5sqm4R2rH1cl2RyzM'
 
 s3 = boto3.client('s3', aws_access_key_id=AWS_ACCESS_KEY, aws_secret_access_key=AWS_SECRET_KEY)
 
-def save_to_bucket(bucket_name: str, folder_name: str, file_name: str, data: Union[Dict, str]):
-    key = f"{folder_name}/{file_name}.json"
+def save_to_bucket(bucket_name: str, folder_name: str, file_name: str, data: Union[Dict, str], file_extension: str = '.json'):
+    key = f"{folder_name}/{file_name}{file_extension}"
     encoded_data = str(data).encode('utf-8')
     for attempt in range(2):  # Attempt to upload twice
         try:
@@ -18,8 +18,9 @@ def save_to_bucket(bucket_name: str, folder_name: str, file_name: str, data: Uni
             return True
         except Exception as e:
             if attempt == 1:  # Log the error after the second failed attempt
-                print(f"Failed to upload {file_name} after 2 attempts.")
+                print(f"Failed to upload {file_name} after 2 attempts. Error: {e}")
     return False
+
 
 def count_files(directory: str, extension: str) -> int:
     count = 0
@@ -55,7 +56,7 @@ def main():
                 local_path = os.path.join(foldername, filename)
                 with open(local_path, 'r') as file:
                     data = file.read()
-                success = save_to_bucket(bucket_name, "logs", filename, data)
+                success = save_to_bucket(bucket_name, "logs", filename, data, '.log')
                 if success:
                     os.remove(local_path)
                     log_success_counter += 1
@@ -74,7 +75,7 @@ def main():
                     with open(local_path, 'r') as file:
                         data = file.read()
                     folder_in_bucket = "uploaded_data/" + foldername.replace(data_dir, "").lstrip("/")
-                    success = save_to_bucket(bucket_name, folder_in_bucket, filename, data)
+                    success = save_to_bucket(bucket_name, folder_in_bucket, filename, data, '.json')
                     if success:
                         os.remove(local_path)
                         data_success_counter += 1
