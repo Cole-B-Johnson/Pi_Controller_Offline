@@ -40,7 +40,7 @@ def main():
     total_log_files = count_files(log_dir, '.log')
     total_data_files = count_files(data_dir, '.json')
 
-    print('Uploading {total_log_files} .log log files and {total_data_files} .json data files...')
+    print(f'Uploading {total_log_files} .log log files and {total_data_files} .json data files...')
     
     log_error_counter = 0
     log_success_counter = 0
