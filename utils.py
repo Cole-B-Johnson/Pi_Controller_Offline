@@ -130,6 +130,8 @@ def read_from_vfd(device_id: int, ser) -> Dict[str, int]:
     
     try:
         byte_count, data = line[2], line[3:-2]
+        print(byte_count)
+        print(data)
         outputs = struct.unpack('>' + 'H' * (byte_count // 2), data)
     except Exception as e:
         msg = f"Error processing data from device {device_id}: {e}"
@@ -162,7 +164,7 @@ def check_local_folder(directory_path: str, processed_timestamps: list) -> Tuple
 
     if not files:
         msg = f"No files found in {directory_path}"
-        print(msg)
+        #print(msg)
         logging.error(msg)
         return None, None
 

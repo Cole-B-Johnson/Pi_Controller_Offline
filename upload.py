@@ -1,11 +1,13 @@
 import os
+import pandas as pd
 import boto3
 from typing import Union, Dict
 from tqdm import tqdm
+import datetime
 
 # Securely set your AWS credentials
-AWS_ACCESS_KEY = 'AKIAVP5ZAHNW7TWQDNEG'
-AWS_SECRET_KEY = 'iHbuzpSxrfaRdeGsj9/yfXI5sqm4R2rH1cl2RyzM'
+AWS_ACCESS_KEY = 'AKIAVP5ZAHNWSDRBNF55'
+AWS_SECRET_KEY = 'vVBQ6Kkd9B4h7jA6KJa4jc9tUPJInz6GQUxmFFFi'
 
 s3 = boto3.client('s3', aws_access_key_id=AWS_ACCESS_KEY, aws_secret_access_key=AWS_SECRET_KEY)
 
@@ -21,90 +23,70 @@ def save_to_bucket(bucket_name: str, folder_name: str, file_name: str, data: Uni
                 print(f"Failed to upload {file_name} after 2 attempts. Error: {e}")
     return False
 
+def read_file_to_dataframe(path: str, filename: str, filetype: str) -> pd.DataFrame:
+    if filetype == 'log':
+        with open(path, 'r') as file:
+            lines = file.readlines()
+        df = pd.DataFrame(lines, columns=['data'])
+    elif filetype == 'json':
+        df = pd.read_json(path, lines=True)
 
-def count_files(directory: str, extension: str) -> int:
-    count = 0
-    for _, _, filenames in os.walk(directory):
+    df['filename'] = filename
+    return df
+
+
+def concatenate_files(directory: str, extension: str) -> pd.DataFrame:
+    all_files_df = pd.DataFrame()
+    total_files = sum([len(files) for _, _, files in os.walk(directory) if any(file.endswith(extension) for file in files)])
+    progress = tqdm(total=total_files, desc=f"Concatenating {extension} files")
+
+    for foldername, _, filenames in os.walk(directory):
         for filename in filenames:
             if filename.endswith(extension):
-                count += 1
-    return count
+                subdirectory = os.path.relpath(foldername, directory)  # Relative path of the subdirectory
+                full_filename = os.path.join(subdirectory, filename) if subdirectory != "." else filename  # Include subdirectory in filename
+                path = os.path.join(foldername, filename)
+                file_df = read_file_to_dataframe(path, full_filename, extension.strip('.'))
+                all_files_df = pd.concat([all_files_df, file_df], ignore_index=True)
+                progress.update(1)
+
+    progress.close()
+    return all_files_df
+
+def process_and_upload_files(directory: str, bucket_name: str, folder_in_bucket: str, extension: str):
+    print('Concatenating Files...')
+    concatenated_df = concatenate_files(directory, extension)
+    csv_data = concatenated_df.to_csv(index=False)
+    filename = f"{datetime.datetime.now().strftime('%Y-%m-%d')}.csv"
+
+    print('Uploading Files...')
+    success = save_to_bucket(bucket_name, folder_in_bucket, filename, csv_data)
+    
+    if success:
+        print('Deleting Files...')
+        total_files = sum([len(files) for _, _, files in os.walk(directory) if files and files[0].endswith(extension)])
+        progress = tqdm(total=total_files, desc=f"Deleting {extension} files")
+        for foldername, _, filenames in os.walk(directory):
+            for filename in filenames:
+                if filename.endswith(extension):
+                    os.remove(os.path.join(foldername, filename))
+                    progress.update(1)
+        progress.close()
+        print(f"Successfully uploaded and deleted all {extension} files.")
+    else:
+        print(f"Failed to upload {extension} files. No files were deleted.")
 
 def main():
     # Define local directory paths and bucket details
     log_dir = "/home/levitree/Desktop/logs/"
     data_dir = "/home/levitree/Desktop/Live-Data-Pathways/"
     bucket_name = "levitree-main"
-    
-    # Preprocessing step to calculate total number of files
-    total_log_files = count_files(log_dir, '.log')
-    total_data_files = count_files(data_dir, '.json')
 
-    print(f'Uploading {total_log_files} .log log files and {total_data_files} .json data files...')
-    
-    log_error_counter = 0
-    log_success_counter = 0
-    data_error_counter = 0
-    data_success_counter = 0
+    # Process, upload, and delete log files
+    process_and_upload_files(log_dir, bucket_name, "uploaded_data/logs", ".log")
 
-    # Process log files
-    print("Processing log files:")
-
-    for foldername, subfolders, filenames in os.walk(log_dir):        
-        for filename in tqdm(filenames, 
-                            bar_format='{l_bar}{bar}| {percentage:3.0f}%  Success: {postfix[0]}, Failed: {postfix[1]}', 
-                            postfix=[log_success_counter, log_error_counter]):
-            if filename.endswith('.log'):
-                local_path = os.path.join(foldername, filename)
-                with open(local_path, 'r') as file:
-                    data = file.read()
-                success = save_to_bucket(bucket_name, "logs", filename, data)
-                if success:
-                    os.remove(local_path)
-                    log_success_counter += 1
-                else:
-                    log_error_counter += 1
-
-    print("\nProcessing data files:")
-
-    for foldername, subfolders, filenames in os.walk(data_dir):
-        for filename in tqdm(filenames, 
-                            bar_format='{l_bar}{bar}| {percentage:3.0f}%  Success: {postfix[0]}, Failed: {postfix[1]}', 
-                            postfix=[data_success_counter, data_error_counter]):
-            if filename.endswith('.json'):
-                local_path = os.path.join(foldername, filename)
-                try:
-                    with open(local_path, 'r') as file:
-                        data = file.read()
-                    folder_in_bucket = "uploaded_data/" + foldername.replace(data_dir, "").lstrip("/")
-                    success = save_to_bucket(bucket_name, folder_in_bucket, filename, data)
-                    if success:
-                        os.remove(local_path)
-                        data_success_counter += 1
-                    else:
-                        data_error_counter += 1
-                except Exception as e:
-                    data_error_counter += 1
-                    os.remove(local_path)
-
-    # Print the summary at the end
-    print("\nUpload Summary:")
-
-    # Log files summary
-    print("Log Files:")
-    if log_error_counter == 0:
-        print(f"All {total_log_files} log files uploaded successfully!")
-    else:
-        print(f"{log_success_counter}/{total_log_files} log files uploaded successfully.")
-        print(f"{log_error_counter} log files had issues and were not uploaded.")
-
-    # Data files summary
-    print("\nData Files:")
-    if data_error_counter == 0:
-        print(f"All {total_data_files} data files uploaded successfully!")
-    else:
-        print(f"{data_success_counter}/{total_data_files} data files uploaded successfully.")
-        print(f"{data_error_counter} data files had issues and were not uploaded.")
+    # Process, upload, and delete JSON data files
+    process_and_upload_files(data_dir, bucket_name, "uploaded_data/data", ".json")
 
 if __name__ == "__main__":
     main()

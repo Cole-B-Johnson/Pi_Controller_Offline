@@ -13,7 +13,7 @@ log_directory = "/home/levitree/Desktop/logs"
 if not os.path.exists(log_directory):
     os.makedirs(log_directory)  # Creates the directory if it does not exist
 
-current_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")  # Generates a string with the current date and time
+current_time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")  # Generates a string with the current date and time
 log_file_name = f"sensor_data_{current_time}.log"  # Appends the timestamp to the logfile's name
 log_file_path = os.path.join(log_directory, log_file_name)  # Joins the directory with the new logfile name
 

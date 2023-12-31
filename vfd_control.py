@@ -10,7 +10,7 @@ log_directory = "/home/levitree/Desktop/logs"
 if not os.path.exists(log_directory):
     os.makedirs(log_directory)
 
-current_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")  # Generates a string with the current date and time.
+current_time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")  # Generates a string with the current date and time.
 log_file_name = f"vfd_control_{current_time}.log"  # Appends the timestamp to the logfile's name.
 log_file_path = os.path.join(log_directory, log_file_name)
 
@@ -86,11 +86,10 @@ def run(vfd_folder, delay_sec, ser, slave_list, slave_name_mapping):
             if current_time - last_directory_write_time > delay_sec:
                 vfd_output = {}
                 for slave in slave_list:
-                    if slave not in [1, 5]:
+                    if slave not in [1]:
                         continue
                     
                     msg = 'reading'
-                    print(msg)
                     logger.debug(msg)
                     
                     try:
@@ -135,9 +134,9 @@ if __name__ == "__main__":
 
     local_folder = '/home/levitree/Desktop' # this should be your local folder
     vfd_folder = f'{local_folder}/Live-Data-Pathways/'
-    delay_sec = 10 
+    delay_sec = .25
     slave_list = [1,3,4,5]
-    slave_name_mapping = {3: 'Hydrapulper', 1: '3_Progressive_Cavity_Pump', 
+    slave_name_mapping = {3: 'Hydrapulper', 1: '3_Progressive_Cavity_Pump', # ..., 8 inch moymo
                           5: '4_Progressive_Cavity_Pump', 4: 'Auger_Truck'}
 
     ser = serial.Serial(
