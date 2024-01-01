@@ -6,6 +6,7 @@ import glob
 from typing import Tuple, Optional, Dict, Union
 import time
 import logging
+import math
 
 def create_modbus_rtu_command(device_id: int, function_code: int, 
                               starting_address: int, num_registers: int) -> bytes:
@@ -48,6 +49,34 @@ def process_speed(data):
     speed = get_user_speed(data)
     return speed
 
+def process_depth(data):
+    depth_input = float(data)
+    angle = 45
+    try:
+        depth = depth_input * math.sin(math.radians(angle))
+        return depth if 0 <= depth <= 1000 else "OL"
+    except ValueError:
+        return "NaN"
+
+def process_pressure(data):
+    try:
+        return float(data)
+    except ValueError:
+        return "NaN"
+
+def process_inputted_depth(data):
+    depth_input = float(get_value(data, 'speed', "NaN"))
+    try:
+        return depth_input if 0 <= depth_input <= 1000 else "OL"
+    except ValueError:
+        return "NaN"
+
+def process_autopilot_mode(data):
+    modes = {"fwd": True, "rev": False}
+    mode_input = get_value(data, 'drive_mode', "")
+    return modes.get(mode_input, "Autopilot Mode Error")
+
+
 def process_slave_id(data):
     slave_id = get_slave_id(data)
     if slave_id == "NaN":
@@ -73,7 +102,7 @@ def send_to_vfd(device_id: int, ser, drive_mode: Optional[int]=None, speed: Opti
     num_registers = drive_mode if drive_mode else speed
     command = create_modbus_rtu_command(device_id, function_code, 
                                         starting_address, num_registers)
-    print(command)
+    # print(command)
 
     max_retries = 3  # Define the maximum number of retries
     retry_delay = 2  # Define the delay between retries in seconds
@@ -172,8 +201,17 @@ def check_local_folder(directory_path: str, processed_timestamps: list) -> Tuple
     try:
         with open(latest_file, 'r') as file_content:
             data = json.load(file_content)
+            # print(data)
         return data, int(os.path.basename(latest_file).split('_')[-1][:-5])
     except json.JSONDecodeError:
+        for _ in range(10):
+            try:
+                with open(latest_file, 'r') as file_content:
+                    data = json.load(file_content)
+                    # print(data)
+                return data, int(os.path.basename(latest_file).split('_')[-1][:-5])
+            except:
+                pass
         msg = f"Error reading JSON from {latest_file}. Skipping..."
         print(msg)
         logging.error(msg)

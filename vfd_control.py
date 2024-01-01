@@ -18,7 +18,7 @@ logging.basicConfig(filename=log_file_path, level=logging.INFO, format='%(asctim
 logger = logging.getLogger()
 
 def run(vfd_folder, delay_sec, ser, slave_list, slave_name_mapping):
-    msg = 'VFD Control -- Clearing Directories'
+    msg = 'VFD Control -- Checking Directories'
     print(msg)
     logger.info(msg)
     
@@ -52,6 +52,8 @@ def run(vfd_folder, delay_sec, ser, slave_list, slave_name_mapping):
     try:
         while True:
             current_time = time.time()
+
+            # writing to vfd if new commands are written to file system
             for slave_ind, slave_name in slave_name_mapping.items():
                 try:
                     data, timestamp = check_local_folder(f'{vfd_folder}{slave_name}/To_VFD/', processed_timestamps[slave_ind])
@@ -82,7 +84,8 @@ def run(vfd_folder, delay_sec, ser, slave_list, slave_name_mapping):
                         msg = 'Successfully wrote new speed'
                         print(msg)
                         logger.info(msg)
-
+            
+            # reading from vfd if reading delay has elapsed
             if current_time - last_directory_write_time > delay_sec:
                 vfd_output = {}
                 for slave in slave_list:
