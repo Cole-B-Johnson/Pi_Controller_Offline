@@ -143,7 +143,10 @@ def run(vfd_folder, delay_sec, slave_names):
                     logger.debug(msg)
                             
                 if autopilot_enabled:
-                    pass
+                    if (current_distance > 50) or (current_distance < 30):
+                        for vfd_name in slave_list:
+                            write_command_for_vfds_to_file(vfd_folder, mode='stop', vfd=vfd_name)
+                    
                     # get difference between current and desired depths
                     # find volumetric proportions between pumps based on current psi and respective hz (how to get proportion?)
                     # (still need the hz to volume of auger truck pump)

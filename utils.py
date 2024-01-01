@@ -54,6 +54,7 @@ def process_depth(data):
     angle = 45
     try:
         depth = depth_input * math.sin(math.radians(angle))
+        depth = depth * .0394
         return depth if 0 <= depth <= 1000 else "OL"
     except ValueError:
         return "NaN"
@@ -274,3 +275,27 @@ def get_timestamps_from_files(directory):
     except Exception as e:
         msg = f"Unexpected error processing filenames in {directory}: {e}"
         return []  # or handle this error appropriately
+
+def write_command_for_vfds_to_file(dir, mode=None, speed=None, vfd_name='default_vfd'):
+    # Create the directory path
+    directory_path = os.path.join(dir, vfd_name, "To_VFD")
+    
+    # Ensure the directory exists, create if it doesn't
+    os.makedirs(directory_path, exist_ok=True)
+    
+    # Create the JSON data
+    data = {}
+    if mode is not None:
+        data['drive_mode'] = mode
+    if speed is not None:
+        data['speed'] = speed
+
+    # Generate file name using the current Unix timestamp
+    file_name = f"command_{int(time.time())}.json"
+    file_path = os.path.join(directory_path, file_name)
+
+    # Write the data to a JSON file
+    with open(file_path, 'w') as file:
+        json.dump(data, file, indent=4)
+
+    print(f"Command written to {file_path}")
