@@ -51,7 +51,7 @@ def process_speed(data):
 
 def process_depth(data):
     depth_input = float(data)
-    angle = 45
+    angle = 53
     try:
         depth = depth_input * math.sin(math.radians(angle))
         depth = depth * .0394
