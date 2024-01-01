@@ -144,7 +144,7 @@ def run(vfd_folder, delay_sec, slave_names):
                             
                 if autopilot_enabled:
                     if (current_distance > 50) or (current_distance < 30):
-                        for vfd_name in slave_list:
+                        for vfd_name in slave_names:
                             write_command_for_vfds_to_file(vfd_folder, mode='stop', vfd=vfd_name)
                     
                     # get difference between current and desired depths
