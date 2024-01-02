@@ -84,6 +84,10 @@ def run(vfd_folder, delay_sec, ser, slave_list, slave_name_mapping):
                         msg = 'Successfully wrote new speed'
                         print(msg)
                         logger.info(msg)
+                # try a delay between slave readings - maybe they're interfering?
+                    stopwatch = time.time()
+                    while time.time() - stopwatch < .25:
+                        continue
             
             # reading from vfd if reading delay has elapsed
             if current_time - last_directory_write_time > delay_sec:
