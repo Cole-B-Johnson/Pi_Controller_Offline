@@ -81,8 +81,8 @@ def print_and_save_sensor_data(dis, pressure, directory_path):
     if dis is not None and pressure is not None:
         info_msg1 = f"Mix Tank Distance {dis} mm"
         info_msg2 = f"Pressure Sensor Reading: {pressure}"
-        print(info_msg1)
-        print(info_msg2)
+        # print(info_msg1)
+        # print(info_msg2)
         logger.info(info_msg1)
         logger.info(info_msg2)
 

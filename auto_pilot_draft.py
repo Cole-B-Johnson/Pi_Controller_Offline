@@ -4,6 +4,7 @@ import argparse
 import serial
 import logging
 import datetime
+from auto_pilot import *
 
 # Setup Logger
 log_directory = "/home/levitree/Desktop/logs"
@@ -18,7 +19,7 @@ logging.basicConfig(filename=log_file_path, level=logging.INFO, format='%(asctim
 logger = logging.getLogger()
 
 
-def run(vfd_folder, delay_sec, slave_names):
+def run(vfd_folder, delay_sec, slave_names, pump_to_scaling_factor, auger_truck_multiplier):
     # vfd_folder: to the live_data_pathways directory
     # delay_sec: between autopilot iterations (pressure check and command writes)
     # slave_names: vfd folder names that we write commands to
@@ -121,7 +122,7 @@ def run(vfd_folder, delay_sec, slave_names):
                     current_pressure = pressure_new
                     processed_timestamps_pressure.append(pressure_timestamp)
                     msg = f'Pressure: {pressure_new}'
-                    print(msg)
+                    # print(msg)
                     logger.debug(msg)
                 
                 # Update current distance measurements if available
@@ -139,7 +140,7 @@ def run(vfd_folder, delay_sec, slave_names):
                     current_distance = distance_new
                     processed_timestamps_distance.append(pressure_timestamp)
                     msg = f'Distance: {distance_new}'
-                    print(msg)
+                    # print(msg)
                     logger.debug(msg)
                             
                 if autopilot_enabled:
@@ -149,10 +150,20 @@ def run(vfd_folder, delay_sec, slave_names):
                     
                     # get difference between current and desired depths
                     # find volumetric proportions between pumps based on current psi and respective hz (how to get proportion?)
+                    
                     # (still need the hz to volume of auger truck pump)
-                    # if not in tollerance:
                     #    scale proportion and recompute hz to increase level 10% more than it is being emptied and vice versa for lowering level
                     #       inlets - outlet (8 inch moymo) / inlets = .1
+                    
+                    # scale the current rate of volumes to find desired rate of volumes for each of the pumps and auger truck with respect to outlet
+                    # outlet_volume_rate = get_volume(current_pressure, latest_vfd_outputs['3_Progressive_Cavity_Pump']['hz'], pump_to_scaling_factor['3_Progressive_Cavity_Pump'])
+
+                    # # need to scale proportionally based on this outlet volume rate by either 1.25 or .75
+
+                    # # find the Hz required for the pumps and auger truck based on these computed new desired rate of volumes
+                    # for current_pump in [x for x in slave_names if x != 'Auger_Truck' and x != '3_Progressive_Cavity_Pump']:
+                    #     find_required_hz_pumps(current_pressure, pump_to_scaling_factor[current_pump], desired_volume[current_pump])
+                    # find_required_hz_auger_truck(auger_truck_multiplier, desired_volume['Auger_Truck'])
 
                 
     except KeyboardInterrupt:
@@ -176,5 +187,10 @@ if __name__ == "__main__":
     delay_sec = .25
     slave_names = ['Hydrapulper', '3_Progressive_Cavity_Pump', # ..., 8 inch moymo
                         '4_Progressive_Cavity_Pump', 'Auger_Truck']
+    
+    pump_to_scaling_factor = {'Hydrapulper': 3.44, '3_Progressive_Cavity_Pump': .1168, # ..., 8 inch moymo
+                        '4_Progressive_Cavity_Pump': 3.44}
+    
+    auger_truck_multiplier = 1 # hz to rate of volumetric deposition
 
-    run(vfd_folder, delay_sec, slave_names)
+    run(vfd_folder, delay_sec, slave_names, pump_to_scaling_factor, auger_truck_multiplier)
