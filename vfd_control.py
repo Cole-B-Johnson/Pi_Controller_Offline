@@ -116,6 +116,12 @@ def run(vfd_folder, delay_sec, ser, slave_list, slave_name_mapping):
                         msg = f"Error saving file for slave {slave}: {e}"
                         print(msg)
                         logger.error(msg)
+
+                    # try a delay between slave readings - maybe they're interfering?
+                    stopwatch = time.time()
+                    while time.time() - stopwatch < .25:
+                        continue
+
     except KeyboardInterrupt:
         msg = f'CTRL + C -- VFD data saved to {vfd_folder}'
         print(msg)
@@ -137,7 +143,7 @@ if __name__ == "__main__":
 
     local_folder = '/home/levitree/Desktop' # this should be your local folder
     vfd_folder = f'{local_folder}/Live-Data-Pathways/'
-    delay_sec = .25
+    delay_sec = 1
     slave_list = [1,3,4,5]
     slave_name_mapping = {3: 'Hydrapulper', 1: '3_Progressive_Cavity_Pump', # ..., 8 inch moymo
                           5: '4_Progressive_Cavity_Pump', 4: 'Auger_Truck'}
