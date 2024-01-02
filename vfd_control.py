@@ -89,7 +89,7 @@ def run(vfd_folder, delay_sec, ser, slave_list, slave_name_mapping):
             if current_time - last_directory_write_time > delay_sec:
                 vfd_output = {}
                 for slave in slave_list:
-                    if slave not in [1, 3, 4, 5]:
+                    if slave not in [1]:
                         continue
                     
                     msg = 'reading'
