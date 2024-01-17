@@ -1,0 +1,34 @@
+port: 3001
+modbus_path: serial:///dev/ttyUSB0
+modbus_devices:
+  - type: VFD
+    slave_id: 1
+    name: Hydrapulper
+    display_name: Pulp Pump
+    model: Frenic
+  - type: VFD
+    slave_id: 3
+    name: 3_Progressive_Cavity_Pump
+    display_name: 8" Pump
+    model: Frenic
+  - type: VFD
+    slave_id: 4
+    name: 4_Progressive_Cavity_Pump
+    display_name: Water Pump
+    model: Frenic
+  - type: VFD
+    slave_id: 5
+    name: Auger_Truck
+    display_name: Auger Truck
+    model: Frenic
+adcs:
+  - name: Pressure Sensor
+    id: Pump_Pressure
+    type: ads1115
+    address: 0x48
+    channel: 3
+distance_sensors:
+  - name: Water Tank Fill Level
+    id: Mix_Tank_Distance
+    gpio_trigger: 18
+    gpio_echo: 24
