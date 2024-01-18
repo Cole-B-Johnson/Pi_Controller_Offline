@@ -43,8 +43,10 @@ class DriveMode(Enum):
 
 @dataclass
 class VFDState:
-    frequency: float = 0
-    drive_mode: DriveMode = DriveMode.OFFLINE
+    cur_frequency: float = 0
+    tgt_frequency: float = 0
+    cur_drive_mode: DriveMode = DriveMode.OFFLINE
+    tgt_drive_mode: DriveMode = DriveMode.OFFLINE
     output_voltage: float = 0
     output_current: float = 0
     input_power: float = 0
@@ -78,7 +80,7 @@ class VFDController:
     vfds: Dict[str, VFD] = {}
     serial_path = ""
     client: AsyncRTUClient = None
-    tx_queue = asyncio.Queue(maxsize=100)
+    client_lock = asyncio.Lock()
 
     def __init__(self, serial_path):
         self.serial_path = serial_path
@@ -116,29 +118,30 @@ class VFDController:
         vfd = self.vfds[vfd_id]
         if vfd.model == "Frenic":
             #We're starting read at M09, 6 regs, to M15.
-            state = await asyncio.wait_for(self.client.read_holding_registers(vfd.slave_id, frenicFunctionCodeToCoil("M09"), 6), timeout=0.2) #DF 22
-            freq = float(state[0] / 100)
-            input_power = float(state[1] / 100)
-            output_current = float(state[2] / 100)
-            output_voltage = float(state[3] / 10)
-            drive_mode_resp = state[5]
-            drive_mode = DriveMode.OFFLINE
-            if drive_mode_resp & 0b1:
-                drive_mode = DriveMode.FORWARD
-            elif drive_mode_resp & 0b10:
-                drive_mode = DriveMode.REVERSE
-            else:
-                drive_mode = DriveMode.STOP
-            vfd.state.frequency = freq
-            vfd.state.input_power = input_power
-            vfd.state.output_voltage = output_voltage
-            vfd.state.output_current = output_current
-            vfd.state.drive_mode = drive_mode
+            async with self.client_lock:
+                state = await asyncio.wait_for(self.client.read_holding_registers(vfd.slave_id, frenicFunctionCodeToCoil("M09"), 6), timeout=0.4) #DF 22
+                freq = float(state[0] / 100)
+                input_power = float(state[1] / 100)
+                output_current = float(state[2] / 100)
+                output_voltage = float(state[3] / 10)
+                drive_mode_resp = state[5]
+                drive_mode = DriveMode.OFFLINE
+                if drive_mode_resp & 0b1:
+                    drive_mode = DriveMode.FORWARD
+                elif drive_mode_resp & 0b10:
+                    drive_mode = DriveMode.REVERSE
+                else:
+                    drive_mode = DriveMode.STOP
+                vfd.state.cur_frequency = freq
+                vfd.state.input_power = input_power
+                vfd.state.output_voltage = output_voltage
+                vfd.state.output_current = output_current
+                vfd.state.cur_drive_mode = drive_mode
 
-            #Get max allowed run frequency from unit
-            state = await asyncio.wait_for(self.client.read_holding_registers(vfd.slave_id, frenicFunctionCodeToCoil("F03"), 1), timeout=0.2) #DF 22
-            max_freq = int(state[0] / 10)
-            vfd.state.max_frequency = max_freq
+                #Get max allowed run frequency from unit
+                state = await asyncio.wait_for(self.client.read_holding_registers(vfd.slave_id, frenicFunctionCodeToCoil("F03"), 1), timeout=0.4) #DF 22
+                max_freq = int(state[0] / 10)
+                vfd.state.max_frequency = max_freq
         else:
             logger.error(f"Cannot update state for VFD {vfd.display_name} as {vfd.model} is unimplemented!")
     
@@ -147,8 +150,10 @@ class VFDController:
         vfd = self.vfds[vfd_id]
         if vfd.model == "Frenic":
             regVal = math.floor(frequency * 100)
-            await asyncio.wait_for(self.client.write_register(vfd.slave_id, frenicFunctionCodeToCoil("S05"), regVal),timeout=0.2) #DF 22
-            logger.info(f"VFD {vfd.display_name} frequency updated to {frequency}Hz")
+            async with self.client_lock:
+                await asyncio.wait_for(self.client.write_register(vfd.slave_id, frenicFunctionCodeToCoil("S05"), regVal),timeout=0.4) #DF 22
+                logger.info(f"VFD {vfd.display_name} frequency updated to {frequency}Hz")
+                vfd.state.tgt_frequency = frequency
 
     @retry(retry_policy)
     async def setDriveMode(self, vfd_id: str, drive_mode: DriveMode):
@@ -162,25 +167,33 @@ class VFDController:
                 regVal = 0
             else:
                 return
-            await asyncio.wait_for(self.client.write_register(vfd.slave_id, frenicFunctionCodeToCoil("S06"), regVal),timeout=0.2) #DF 14
-            logger.info(f"VFD {vfd.display_name} drive mode updated to {repr(drive_mode)}")
+            async with self.client_lock:
+                await asyncio.wait_for(self.client.write_register(vfd.slave_id, frenicFunctionCodeToCoil("S06"), regVal),timeout=0.4) #DF 14
+                logger.info(f"VFD {vfd.display_name} drive mode updated to {repr(drive_mode)}")
+                vfd.state.tgt_drive_mode = drive_mode
     
     async def modbusConsumer(self):
         while True:
-            try:
-                item = self.tx_queue.get_nowait()
-            except asyncio.QueueEmpty:
-                if self.client is not None:
-                    for vfd in self.vfds:
-                        vfd = self.vfds[vfd]
-                        try:
-                            await self.updateState(vfd.id)
-                            vfd.poll_fail_count = 0
-                        except Exception:
-                            vfd.poll_fail_count = vfd.poll_fail_count + 1
-                            if vfd.poll_fail_count > 5:
-                                logger.error(f"Could not get VFD state: {vfd.display_name} as a serial exception occured!")
-                                self.initializeModbus()
+            await asyncio.sleep(0.2)
+            if self.client is not None:
+                for vfd in self.vfds:
+                    vfd = self.vfds[vfd]
+                    try:
+                        await self.updateState(vfd.id)
+                        vfd.poll_fail_count = 0
+                        await asyncio.sleep(0.1)
+                    except Exception:
+                        vfd.poll_fail_count = vfd.poll_fail_count + 1
+                        if vfd.poll_fail_count > 5:
+                            self.initializeModbus()
+                        elif vfd.poll_fail_count > 10:
+                            vfd.state.drive_mode = DriveMode.OFFLINE
+                            logger.error(f"Could not get VFD state: {vfd.display_name} as a serial exception occured!")
+                                
 
-    def initializeModbus(self):
+    async def initializeModbus(self):
         self.client = core.modbus_for_url(self.serial_path, {"baudrate":9600, "parity":"E"})
+        for vfd in self.vfds:
+            vfd = self.vfds[vfd]
+            await self.setDriveMode(vfd.id, DriveMode.STOP)
+            await self.setFrequency(vfd.id, 0)
