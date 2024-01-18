@@ -1,3 +1,4 @@
+import asyncio
 from sanic.response import json
 from sanic import BadRequest, Blueprint, InternalServerError, Request, Websocket
 from sanic.log import logger
@@ -46,6 +47,43 @@ async def get_vfd_state(request, vfd_id: str):
     vfdState = controller.getStateDict(vfd_id)
 
     return json(vfdState)
+
+@VFDBlueprint.get("/<vfd_id>/<code>/<num_reg>")
+@openapi.definition(
+    summary="Get num_regs starting at code from VFD over Modbus",
+    tag="VFD Control",
+    response={
+        "application/json": [int]
+    },
+)
+async def get_vfd_coils(request, vfd_id: str, code: str, num_reg: int):
+    if not hasattr(request.app.ctx, 'vfdController'):
+        raise InternalServerError("VFD subsystem not initialized!")
+    controller: VFDController = request.app.ctx.vfdController
+
+    if not controller.hasVFD(vfd_id):
+        raise BadRequest(f"VFD {vfd_id} does not exist!")
+
+    vfdState = await controller.getCoils(vfd_id, code, num_reg)
+
+    return json(vfdState)
+
+@VFDBlueprint.get("/<vfd_id>/clear_alarm")
+@openapi.definition(
+    summary="Clear active alarm on VFD",
+    tag="VFD Control",
+)
+async def clear_vfd_alarm(request, vfd_id: str):
+    if not hasattr(request.app.ctx, 'vfdController'):
+        raise InternalServerError("VFD subsystem not initialized!")
+    controller: VFDController = request.app.ctx.vfdController
+
+    if not controller.hasVFD(vfd_id):
+        raise BadRequest(f"VFD {vfd_id} does not exist!")
+
+    await controller.clearAlarm(vfd_id)
+
+    return json({})
 
 @VFDBlueprint.post("/<vfd_id>")
 @openapi.definition(

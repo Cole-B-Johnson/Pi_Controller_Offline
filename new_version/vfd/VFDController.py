@@ -24,7 +24,7 @@ def retry_policy(info: RetryInfo) -> RetryPolicyStrategy:
       100ms delay before the 5th retry,
       etc...
     """
-    return (info.fails > 5), (info.fails - 1) % 3 * 0.1
+    return (info.fails > 10), (info.fails - 1) % 3 * 0.1
 
 
 from serial import SerialException
@@ -114,31 +114,56 @@ class VFDController:
     def getStateDict(self, vfd_id: str) -> Dict[any, any]:
         return asdict(self.vfds[vfd_id].state, dict_factory=custom_asdict_factory)
     
-    async def updateState(self, vfd_id: str):
+    async def getCoils(self, vfd_id: str, start_code: str, num: int):
         vfd = self.vfds[vfd_id]
         if vfd.model == "Frenic":
             #We're starting read at M09, 6 regs, to M15.
             async with self.client_lock:
-                state = await asyncio.wait_for(self.client.read_holding_registers(vfd.slave_id, frenicFunctionCodeToCoil("M09"), 6), timeout=0.4) #DF 22
-                freq = float(state[0] / 100)
-                input_power = float(state[1] / 100)
-                output_current = float(state[2] / 100)
-                output_voltage = float(state[3] / 10)
-                drive_mode_resp = state[5]
-                drive_mode = DriveMode.OFFLINE
-                if drive_mode_resp & 0b1:
-                    drive_mode = DriveMode.FORWARD
-                elif drive_mode_resp & 0b10:
-                    drive_mode = DriveMode.REVERSE
+                state = await asyncio.wait_for(self.client.read_holding_registers(vfd.slave_id, frenicFunctionCodeToCoil(start_code), num), timeout=10) #DF 22
+                return state
+        else:
+            logger.error(f"Cannot update state for VFD {vfd.display_name} as {vfd.model} is unimplemented!")
+    
+    async def updateState(self, vfd_id: str):
+        vfd = self.vfds[vfd_id]
+        if vfd.model == "Frenic":
+            #We're starting read at M05, 10 regs, to M15.
+            async with self.client_lock:
+                state = await asyncio.wait_for(self.client.read_holding_registers(vfd.slave_id, frenicFunctionCodeToCoil("M05"), 10), timeout=0.4)
+
+                tgt_freq = float(state[0] / 100)
+                freq = float(state[4] / 100)
+                input_power = float(state[5] / 100)
+                output_current = float(state[6] / 100)
+                output_voltage = float(state[7] / 10)
+                operation_command = state[8]
+                operation_status = state[9]
+                tgt_drive_mode = DriveMode.OFFLINE
+                if operation_command & 0b1:
+                    tgt_drive_mode = DriveMode.FORWARD
+                elif operation_command & 0b10:
+                    tgt_drive_mode = DriveMode.REVERSE
                 else:
-                    drive_mode = DriveMode.STOP
+                    tgt_drive_mode = DriveMode.STOP
+                cur_drive_mode = DriveMode.OFFLINE
+                if operation_status & 0b1:
+                    cur_drive_mode = DriveMode.FORWARD
+                elif operation_status & 0b10:
+                    cur_drive_mode = DriveMode.REVERSE
+                else:
+                    cur_drive_mode = DriveMode.STOP
+
+                vfd.state.tgt_frequency = tgt_freq
                 vfd.state.cur_frequency = freq
+
                 vfd.state.input_power = input_power
                 vfd.state.output_voltage = output_voltage
                 vfd.state.output_current = output_current
-                vfd.state.cur_drive_mode = drive_mode
 
-                #Get max allowed run frequency from unit
+                vfd.state.tgt_drive_mode = tgt_drive_mode
+                vfd.state.cur_drive_mode = cur_drive_mode
+
+                #Get max allowed run frequency from unit - this populates range sliders
                 state = await asyncio.wait_for(self.client.read_holding_registers(vfd.slave_id, frenicFunctionCodeToCoil("F03"), 1), timeout=0.4) #DF 22
                 max_freq = int(state[0] / 10)
                 vfd.state.max_frequency = max_freq
@@ -171,6 +196,14 @@ class VFDController:
                 await asyncio.wait_for(self.client.write_register(vfd.slave_id, frenicFunctionCodeToCoil("S06"), regVal),timeout=0.4) #DF 14
                 logger.info(f"VFD {vfd.display_name} drive mode updated to {repr(drive_mode)}")
                 vfd.state.tgt_drive_mode = drive_mode
+
+    @retry(retry_policy)
+    async def clearAlarm(self, vfd_id: str):
+        vfd = self.vfds[vfd_id]
+        if vfd.model == "Frenic":
+            async with self.client_lock:
+                await asyncio.wait_for(self.client.write_register(vfd.slave_id, frenicFunctionCodeToCoil("S06"), 0b1000000000000000),timeout=0.4) #DF 14
+                logger.info(f"VFD {vfd.display_name} alarm cleared")
     
     async def modbusConsumer(self):
         while True:
@@ -191,9 +224,5 @@ class VFDController:
                             logger.error(f"Could not get VFD state: {vfd.display_name} as a serial exception occured!")
                                 
 
-    async def initializeModbus(self):
+    def initializeModbus(self):
         self.client = core.modbus_for_url(self.serial_path, {"baudrate":9600, "parity":"E"})
-        for vfd in self.vfds:
-            vfd = self.vfds[vfd]
-            await self.setDriveMode(vfd.id, DriveMode.STOP)
-            await self.setFrequency(vfd.id, 0)
