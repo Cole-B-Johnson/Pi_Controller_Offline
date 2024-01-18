@@ -4,7 +4,7 @@ from vfd.VFDController import DriveMode
 
 class SetVFDStateParams(BaseModel):
     frequency: Optional[float] = None
-    drive_mode: Optional[DriveMode] = DriveMode.STOP
+    drive_mode: Optional[DriveMode] = None
 
     @validator('frequency')
     def assert_freq(cls, v):

@@ -1,5 +1,5 @@
 from sanic.response import json
-from sanic import BadRequest, Blueprint
+from sanic import BadRequest, Blueprint, InternalServerError, Request, Websocket
 from sanic.log import logger
 from sanic_ext import validate, openapi
 import yaml
@@ -9,6 +9,11 @@ from .VFDController import VFDController, VFD, VFDState
 
 VFDBlueprint = Blueprint("vfd", url_prefix="/vfd")
 
+@VFDBlueprint.websocket("/live")
+async def live_state(request: Request, ws: Websocket):
+    async for msg in ws:
+        await ws.send(msg)
+
 @VFDBlueprint.get("/")
 @openapi.definition(
     summary="List all VFDs configured on the system",
@@ -16,7 +21,10 @@ VFDBlueprint = Blueprint("vfd", url_prefix="/vfd")
     response={"application/json": [VFD]}
 )
 async def get_vfd_list(request):
+    if not hasattr(request.app.ctx, 'vfdController'):
+        raise InternalServerError("VFD subsystem not initialized!")
     controller: VFDController = request.app.ctx.vfdController
+
     return json(controller.getVFDSArr())
 
 @VFDBlueprint.get("/<vfd_id>")
@@ -28,7 +36,10 @@ async def get_vfd_list(request):
     },
 )
 async def get_vfd_state(request, vfd_id: str):
+    if not hasattr(request.app.ctx, 'vfdController'):
+        raise InternalServerError("VFD subsystem not initialized!")
     controller: VFDController = request.app.ctx.vfdController
+
     if not controller.hasVFD(vfd_id):
         raise BadRequest(f"VFD {vfd_id} does not exist!")
 
@@ -46,20 +57,22 @@ async def get_vfd_state(request, vfd_id: str):
 )
 @validate(json=SetVFDStateParams)
 async def set_vfd_state(request, vfd_id: str, body: SetVFDStateParams):
+    if not hasattr(request.app.ctx, 'vfdController'):
+        raise InternalServerError("VFD subsystem not initialized!")
     controller: VFDController = request.app.ctx.vfdController
 
     if not controller.hasVFD(vfd_id):
         raise BadRequest(f"VFD {vfd_id} does not exist!")
-    
-    if "frequency" in body:
-        request.app.add_task(controller.setFrequency(vfd_id, body.frequency))
+    logger.info
+    if body.frequency != None:
+        request.app.add_task(controller.setFrequency(vfd_id, body.frequency), name="set_frequency")
 
-    if "drive_mode" in body:
-        request.app.add_task(controller.setDriveMode(vfd_id, body.drive_mode))
+    if body.drive_mode != None:
+        request.app.add_task(controller.setDriveMode(vfd_id, body.drive_mode), name="set_drive_mode")
 
-    return json()
+    return json({})
 
-@VFDBlueprint.listener('after_server_start')
+@VFDBlueprint.listener('before_server_start')
 def open_serial_port(app):
     with open("config.yaml") as cfgFile:
         cfg = yaml.load(cfgFile, Loader=yaml.FullLoader)
@@ -67,5 +80,5 @@ def open_serial_port(app):
         for modbus_device in cfg["modbus_devices"]:
             if modbus_device["type"] == "VFD":
                 app.ctx.vfdController.registerVFD(modbus_device["slave_id"], modbus_device["display_name"], modbus_device["name"], model=modbus_device["model"])
-                app.add_task(app.ctx.vfdController.vfdStateUpdateLoop(modbus_device["name"]))
-        app.add_task(app.ctx.vfdController.initializeModbus)
+        app.add_task(app.ctx.vfdController.initializeModbus, name="init_modbus")
+        app.add_task(app.ctx.vfdController.modbusConsumer, name="modbus_consumer")

@@ -1,25 +1,10 @@
 port: 3001
-modbus_path: serial:///dev/ttyUSB0
+modbus_path: serial:///dev/tty.usbserial-B000DTU5
 modbus_devices:
   - type: VFD
     slave_id: 1
-    name: Hydrapulper
-    display_name: Pulp Pump
-    model: Frenic
-  - type: VFD
-    slave_id: 3
-    name: 3_Progressive_Cavity_Pump
-    display_name: 8" Pump
-    model: Frenic
-  - type: VFD
-    slave_id: 4
-    name: 4_Progressive_Cavity_Pump
-    display_name: Water Pump
-    model: Frenic
-  - type: VFD
-    slave_id: 5
-    name: Auger_Truck
-    display_name: Auger Truck
+    name: TestVFD
+    display_name: Test
     model: Frenic
 adcs:
   - name: Pressure Sensor
